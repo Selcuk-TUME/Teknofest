@@ -1,0 +1,47 @@
+<!-- SideNavBar Component -->
+<nav class="bg-surface-container-lowest border-r border-outline-variant h-screen w-64 fixed left-0 top-0 z-40 flex flex-col py-margin-desktop hidden md:flex">
+    <div class="px-6 mb-8 flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(78,222,163,0.2)]">
+            <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">monitor_heart</span>
+        </div>
+        <div>
+            <h1 class="font-headline-lg-mobile text-headline-lg-mobile text-primary tracking-tight font-semibold">Livestock Monitor</h1>
+            <p class="font-body-sm text-body-sm text-primary/70">ESP32 Aktif</p>
+        </div>
+    </div>
+    
+    <div class="flex-1 flex flex-col gap-2 px-2">
+        <a class="bg-secondary-container/20 text-secondary border-r-4 border-secondary flex items-center gap-3 px-4 py-3 rounded-l-lg translate-x-1 duration-150 font-medium" asp-page="/Index">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">videocam</span>
+            <span class="font-body-md">Canlı Yayın</span>
+        </a>
+        <a class="text-on-surface-variant flex items-center gap-3 px-4 py-3 hover:bg-surface-container-high hover:text-text-primary transition-colors rounded-l-lg" href="#telemetry">
+            <span class="material-symbols-outlined">insights</span>
+            <span class="font-body-md">Analiz</span>
+        </a>
+        <a class="text-on-surface-variant flex items-center gap-3 px-4 py-3 hover:bg-surface-container-high hover:text-text-primary transition-colors rounded-l-lg" href="#biometrics">
+            <span class="material-symbols-outlined">legend_toggle</span>
+            <span class="font-body-md">Biyometri</span>
+        </a>
+        <a class="text-on-surface-variant flex items-center gap-3 px-4 py-3 hover:bg-surface-container-high hover:text-text-primary transition-colors rounded-l-lg" href="#settings">
+            <span class="material-symbols-outlined">settings</span>
+            <span class="font-body-md">Ayarlar</span>
+        </a>
+        <a class="text-on-surface-variant flex items-center gap-3 px-4 py-3 hover:bg-surface-container-high hover:text-text-primary transition-colors rounded-l-lg" href="#support">
+            <span class="material-symbols-outlined">help</span>
+            <span class="font-body-md">Destek</span>
+        </a>
+    </div>
+
+    <div class="px-6 mt-auto">
+        <form method="post" asp-page-handler="ExportData" class="w-full">
+            <button type="submit" class="w-full py-2.5 px-4 bg-surface-container-high hover:bg-surface-variant text-on-surface hover:text-text-primary rounded-lg transition-colors border border-surface-border flex items-center justify-center gap-2 mb-4 font-body-sm shadow-sm cursor-pointer">
+                <span class="material-symbols-outlined text-sm">download</span> Veriyi Dışa Aktar
+            </button>
+        </form>
+        <a class="text-on-surface-variant flex items-center gap-3 py-3 hover:text-primary transition-colors font-body-sm" href="#logout">
+            <span class="material-symbols-outlined">logout</span>
+            <span>Çıkış Yap</span>
+        </a>
+    </div>
+</nav>
