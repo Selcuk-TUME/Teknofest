@@ -241,30 +241,188 @@
 <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-8 border-t border-slate-200/80 mb-12">
     <!-- Telemetry Graph (7 cols) -->
     <div class="lg:col-span-7 flex flex-col">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
             <div>
                 <h2 class="text-lg font-semibold text-slate-900 font-headline-lg">Telemetri Akışı</h2>
-                <p class="text-xs text-slate-500 mt-0.5">10 Hz hızında yük hücresi verileri.</p>
+                <p class="text-xs text-slate-500 mt-0.5">10 Hz hızında yük hücresi canlı veri akışı ve anormallik izleme.</p>
             </div>
-            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs">
-                <button type="button" id="tab-filtered-data" class="px-2.5 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer">Filtrelenmiş</button>
-                <button type="button" id="tab-raw-data" class="px-2.5 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer">Ham Veri</button>
+            
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Time Range Selector -->
+                <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg text-xs" id="chart-range-group">
+                    <button type="button" id="btn-range-10s" class="px-2 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer transition">10 sn</button>
+                    <button type="button" id="btn-range-30s" class="px-2 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer transition">30 sn</button>
+                    <button type="button" id="btn-range-60s" class="px-2 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer transition">60 sn</button>
+                </div>
+
+                <!-- View Mode Selector (Filtered / Raw / Deviation) -->
+                <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg text-xs" id="chart-mode-group">
+                    <button type="button" id="tab-filtered-data" class="px-2.5 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer transition">Filtrelenmiş</button>
+                    <button type="button" id="tab-raw-data" class="px-2.5 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer transition">Ham Veri</button>
+                    <button type="button" id="tab-deviation-data" class="px-2.5 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer transition">Sapma (Z-Score)</button>
+                </div>
             </div>
         </div>
 
-        <div class="h-56 bg-slate-50/70 rounded-2xl border border-slate-200 p-4 relative flex items-end">
-            <!-- Minimal Stripe-like Line Waveforms -->
-            <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-                <path d="M0,35 Q20,32 40,36 T70,33 T100,35" fill="none" stroke="#0F172A" stroke-width="1.8"></path>
-                <path d="M0,45 Q25,48 50,44 T80,47 T100,45" fill="none" stroke="#64748B" stroke-width="1.5"></path>
-                <path d="M0,70 Q30,65 60,72 T100,68" fill="none" stroke="#D97706" stroke-width="1.5"></path>
-                <path d="M0,60 Q20,62 50,58 T100,61" fill="none" stroke="#94A3B8" stroke-width="1.2" stroke-dasharray="2,2"></path>
-            </svg>
-            <div class="absolute bottom-3 left-4 flex gap-4 text-xs text-slate-500 font-medium">
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-900"></span> FL</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-500"></span> FR</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> BL</span>
-                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-300"></span> BR</span>
+        <!-- Telemetry Chart Canvas Container -->
+        <div class="relative bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs select-none" id="telemetry-chart-wrapper">
+            <!-- Chart Header Sub-row: Tolerance Band & Status Indicator -->
+            <div class="flex items-center justify-between text-xs pb-3 mb-1 border-b border-slate-100">
+                <div class="flex items-center gap-2" id="tolerance-band-badge">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+                    <span class="text-slate-600 font-medium text-[11px]" id="band-label">Normal Tolerans Aralığı (115 - 140 kg)</span>
+                </div>
+                <div class="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>10 Hz • 4 Kanal HX711</span>
+                </div>
+            </div>
+
+            <!-- Dynamic SVG Chart Canvas -->
+            <div class="relative w-full aspect-[21/9] min-h-[260px] sm:min-h-[290px]" id="chart-svg-container">
+                <svg id="telemetry-svg" class="w-full h-full overflow-visible" viewBox="0 0 760 270" preserveAspectRatio="none">
+                    <!-- Definitions: Gradients & Markers -->
+                    <defs>
+                        <linearGradient id="bandGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#10B981" stop-opacity="0.09" />
+                            <stop offset="100%" stop-color="#10B981" stop-opacity="0.04" />
+                        </linearGradient>
+                        <linearGradient id="anomalyGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stop-color="#EF4444" stop-opacity="0.15" />
+                            <stop offset="100%" stop-color="#EF4444" stop-opacity="0.0" />
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Background Tolerance / Threshold Band -->
+                    <g id="grid-threshold-band"></g>
+
+                    <!-- Horizontal & Vertical Grid Lines -->
+                    <g id="grid-lines-horizontal"></g>
+                    <g id="grid-lines-vertical"></g>
+
+                    <!-- Y-Axis Labels & Unit -->
+                    <g id="y-axis-labels"></g>
+
+                    <!-- X-Axis Labels & Timestamps -->
+                    <g id="x-axis-labels"></g>
+
+                    <!-- Anomaly Indicator Zone & Line -->
+                    <g id="anomaly-marker-group" class="cursor-pointer"></g>
+
+                    <!-- 4 Leg Telemetry Waveform Curves -->
+                    <!-- Anatomy Palette: FL (Sol Ön: Düz Koyu Mavi), FR (Sağ Ön: Kesikli Açık Mavi), BL (Sol Arka: Düz Koyu Turuncu), BR (Sağ Arka: Kesikli Açık Turuncu) -->
+                    <path id="curve-fl" fill="none" stroke="#1D4ED8" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="transition-opacity duration-200" />
+                    <path id="curve-fr" fill="none" stroke="#0284C7" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" class="transition-opacity duration-200" />
+                    <path id="curve-bl" fill="none" stroke="#D97706" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="transition-opacity duration-200" />
+                    <path id="curve-br" fill="none" stroke="#F97316" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="6,4" class="transition-opacity duration-200" />
+
+                    <!-- Crosshair Vertical Line -->
+                    <line id="crosshair-line" x1="0" y1="20" x2="0" y2="230" stroke="#64748B" stroke-width="1.2" stroke-dasharray="3,3" opacity="0" />
+
+                    <!-- 4 Interactive Snap Dots -->
+                    <circle id="snap-fl" r="4.5" fill="#1D4ED8" stroke="#FFFFFF" stroke-width="2" opacity="0" />
+                    <circle id="snap-fr" r="4.5" fill="#0284C7" stroke="#FFFFFF" stroke-width="2" opacity="0" />
+                    <circle id="snap-bl" r="4.5" fill="#D97706" stroke="#FFFFFF" stroke-width="2" opacity="0" />
+                    <circle id="snap-br" r="4.5" fill="#F97316" stroke="#FFFFFF" stroke-width="2" opacity="0" />
+
+                    <!-- Transparent Interaction Hit-Box -->
+                    <rect id="chart-hit-rect" x="55" y="20" width="685" height="210" fill="transparent" class="cursor-crosshair" />
+                </svg>
+
+                <!-- Floating Crosshair Tooltip Popover -->
+                <div id="chart-crosshair-tooltip" class="glass-tooltip absolute opacity-0 z-40 p-3 rounded-xl text-slate-800 w-56 transform -translate-x-1/2 pointer-events-none transition-opacity duration-150 shadow-lg">
+                    <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
+                        <span class="text-xs font-semibold text-slate-900 font-data" id="tooltip-time-text">00:06.4</span>
+                        <span class="text-[10px] font-mono text-slate-400" id="tooltip-sec-text">t = 6.4 sn</span>
+                    </div>
+                    <div class="space-y-1 text-xs">
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center gap-1.5 text-slate-600 font-medium">
+                                <span class="w-3 h-0.5 bg-[#1D4ED8] rounded-full inline-block"></span> FL (Sol Ön)
+                            </span>
+                            <span class="font-semibold text-slate-900 font-data" id="tt-val-fl">132.5 kg</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center gap-1.5 text-slate-600 font-medium">
+                                <span class="w-3 h-0.5 border-b border-dashed border-[#0284C7] inline-block"></span> FR (Sağ Ön)
+                            </span>
+                            <span class="font-semibold text-slate-900 font-data" id="tt-val-fr">131.0 kg</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center gap-1.5 text-amber-700 font-semibold">
+                                <span class="w-3 h-0.5 bg-[#D97706] rounded-full inline-block"></span> BL (Sol Arka)
+                            </span>
+                            <div class="flex items-center gap-1">
+                                <span class="text-[9px] px-1 py-0.2 bg-amber-100 text-amber-800 rounded font-sans">Düşük</span>
+                                <span class="font-bold text-amber-900 font-data" id="tt-val-bl">108.2 kg</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center gap-1.5 text-slate-600 font-medium">
+                                <span class="w-3 h-0.5 border-b border-dashed border-[#F97316] inline-block"></span> BR (Sağ Arka)
+                            </span>
+                            <span class="font-semibold text-slate-900 font-data" id="tt-val-br">110.7 kg</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                        <span>Toplam: <strong class="text-slate-900 font-data" id="tt-total-weight">482.4 kg</strong></span>
+                        <span id="tt-balance-ratio" class="font-mono text-[10px]">Ön: %54.6</span>
+                    </div>
+                </div>
+
+                <!-- Anomaly Tooltip Card (Shown when hovering anomaly badge) -->
+                <div id="anomaly-popover-card" class="glass-tooltip absolute opacity-0 z-40 p-3 rounded-xl text-slate-800 w-64 pointer-events-none transition-opacity duration-150 shadow-xl border-amber-200">
+                    <div class="flex items-center gap-1.5 text-xs font-semibold text-amber-800 mb-1">
+                        <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                        <span>Tanı Uyarısı: Ani Yük Kayması</span>
+                    </div>
+                    <p class="text-[11px] text-slate-600 leading-snug">
+                        Sol arka ayakta <strong class="text-amber-700 font-data">-24.1 kg</strong> asimetrik yük kaybı tespit edildi. Hayvan ağırlığını ön ve sağ bacaklara aktarıyor.
+                    </p>
+                    <div class="mt-2 text-[10px] text-slate-400 font-mono">
+                        Zaman: t = 6.2 sn • Güven Skoru: %98.4
+                    </div>
+                </div>
+            </div>
+
+            <!-- Systematic Anatomical Legend (Color & Style Coding) -->
+            <div class="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <!-- FL -->
+                    <button type="button" class="legend-chip flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-200/70 transition cursor-pointer" data-leg="fl">
+                        <div class="w-5 h-0.5 bg-[#1D4ED8] rounded-full"></div>
+                        <span class="font-medium text-slate-700">FL: Sol Ön</span>
+                        <span class="font-data font-semibold text-slate-900" id="leg-val-fl">132.5 kg</span>
+                    </button>
+
+                    <!-- FR -->
+                    <button type="button" class="legend-chip flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-sky-50 border border-slate-200/70 transition cursor-pointer" data-leg="fr">
+                        <div class="w-5 h-0 border-b-2 border-dashed border-[#0284C7]"></div>
+                        <span class="font-medium text-slate-700">FR: Sağ Ön</span>
+                        <span class="font-data font-semibold text-slate-900" id="leg-val-fr">131.0 kg</span>
+                    </button>
+
+                    <!-- BL -->
+                    <button type="button" class="legend-chip flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-50/70 hover:bg-amber-100/70 border border-amber-200/80 transition cursor-pointer" data-leg="bl">
+                        <div class="w-5 h-0.5 bg-[#D97706] rounded-full"></div>
+                        <span class="font-medium text-amber-900">BL: Sol Arka</span>
+                        <span class="font-data font-bold text-amber-900" id="leg-val-bl">108.2 kg</span>
+                        <span class="text-[9px] px-1 py-0.2 bg-amber-200/70 text-amber-800 rounded font-medium">Düşük</span>
+                    </button>
+
+                    <!-- BR -->
+                    <button type="button" class="legend-chip flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-orange-50 border border-slate-200/70 transition cursor-pointer" data-leg="br">
+                        <div class="w-5 h-0 border-b-2 border-dashed border-[#F97316]"></div>
+                        <span class="font-medium text-slate-700">BR: Sağ Arka</span>
+                        <span class="font-data font-semibold text-slate-900" id="leg-val-br">110.7 kg</span>
+                    </button>
+                </div>
+
+                <!-- Systematic Legend Guide Note -->
+                <div class="text-[11px] text-slate-400 flex items-center gap-3">
+                    <span class="flex items-center gap-1"><span class="w-3 h-0.5 bg-slate-400 inline-block"></span> Sol: Düz</span>
+                    <span class="flex items-center gap-1"><span class="w-3 h-0 border-b border-dashed border-slate-400 inline-block"></span> Sağ: Kesikli</span>
+                </div>
             </div>
         </div>
     </div>

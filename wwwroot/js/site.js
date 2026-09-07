@@ -673,10 +673,24 @@ class TelemetrySimulator {
         hoofData.FL.share = `%${pFL.toFixed(1)}`;
         hoofData.FR.weight = `${currentFR.toFixed(1)} kg`;
         hoofData.FR.share = `%${pFR.toFixed(1)}`;
+        hoofData.FL.weight = `${currentFL.toFixed(1)} kg`;
+        hoofData.FL.share = `%${pFL.toFixed(1)}`;
+        hoofData.FR.weight = `${currentFR.toFixed(1)} kg`;
+        hoofData.FR.share = `%${pFR.toFixed(1)}`;
         hoofData.BL.weight = `${currentBL.toFixed(1)} kg`;
         hoofData.BL.share = `%${pBL.toFixed(1)}`;
         hoofData.BR.weight = `${currentBR.toFixed(1)} kg`;
         hoofData.BR.share = `%${pBR.toFixed(1)}`;
+
+        // Update systematic chart legend values
+        const legValFL = document.getElementById('leg-val-fl');
+        const legValFR = document.getElementById('leg-val-fr');
+        const legValBL = document.getElementById('leg-val-bl');
+        const legValBR = document.getElementById('leg-val-br');
+        if (legValFL) legValFL.textContent = `${currentFL.toFixed(1)} kg`;
+        if (legValFR) legValFR.textContent = `${currentFR.toFixed(1)} kg`;
+        if (legValBL) legValBL.textContent = `${currentBL.toFixed(1)} kg`;
+        if (legValBR) legValBR.textContent = `${currentBR.toFixed(1)} kg`;
 
         const mValFL = document.getElementById('modal-val-fl');
         const mPctFL = document.getElementById('modal-pct-fl');
@@ -706,23 +720,572 @@ class TelemetrySimulator {
             const lat = Math.floor(40 + Math.random() * 8);
             latencyEl.textContent = `${lat}ms`;
         }
+
+        // Stream into chart engine in real-time
+        if (window.telemetryChart) {
+            window.telemetryChart.pushLiveSample(currentFL, currentFR, currentBL, currentBR);
+        }
     }
 }
 
 const simulator = new TelemetrySimulator();
 
-// Filter tabs
-function setTelemetryFilter(isFiltered) {
-    const btnRaw = document.getElementById('tab-raw-data');
-    const btnFiltered = document.getElementById('tab-filtered-data');
-    if (!btnRaw || !btnFiltered) return;
+// ================= TELEMETRY CHART ENGINE =================
+// Professional 10 Hz Telemetry Visualizer with Anatomical Palettes, Threshold Bands, Crosshair & Anomaly Detection
+class TelemetryChartEngine {
+    constructor() {
+        this.svg = document.getElementById('telemetry-svg');
+        if (!this.svg) return;
 
-    if (isFiltered) {
-        btnFiltered.className = "px-2.5 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer";
-        btnRaw.className = "px-2.5 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer";
-    } else {
-        btnRaw.className = "px-2.5 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer";
-        btnFiltered.className = "px-2.5 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer";
+        this.container = document.getElementById('chart-svg-container');
+        this.hitRect = document.getElementById('chart-hit-rect');
+        this.crosshairLine = document.getElementById('crosshair-line');
+        this.tooltip = document.getElementById('chart-crosshair-tooltip');
+        this.anomalyCard = document.getElementById('anomaly-popover-card');
+
+        this.curveFL = document.getElementById('curve-fl');
+        this.curveFR = document.getElementById('curve-fr');
+        this.curveBL = document.getElementById('curve-bl');
+        this.curveBR = document.getElementById('curve-br');
+
+        this.snapFL = document.getElementById('snap-fl');
+        this.snapFR = document.getElementById('snap-fr');
+        this.snapBL = document.getElementById('snap-bl');
+        this.snapBR = document.getElementById('snap-br');
+
+        this.gThreshold = document.getElementById('grid-threshold-band');
+        this.gHorizGrid = document.getElementById('grid-lines-horizontal');
+        this.gVertGrid = document.getElementById('grid-lines-vertical');
+        this.gYLabels = document.getElementById('y-axis-labels');
+        this.gXLabels = document.getElementById('x-axis-labels');
+        this.gAnomaly = document.getElementById('anomaly-marker-group');
+
+        // SVG Viewport Metrics
+        this.viewWidth = 760;
+        this.viewHeight = 270;
+        this.padLeft = 55;
+        this.padRight = 20;
+        this.padTop = 25;
+        this.padBottom = 40;
+        this.plotWidth = this.viewWidth - this.padLeft - this.padRight; // 685
+        this.plotHeight = this.viewHeight - this.padTop - this.padBottom; // 205
+
+        // State variables
+        this.mode = 'filtered'; // 'filtered' | 'raw' | 'deviation'
+        this.rangeSec = 10;     // 10 | 30 | 60
+        this.activeLegHighlight = null;
+        this.isHovering = false;
+        this.lastHoverRatio = 0;
+
+        // Rolling 60-second telemetry buffer (600 samples at 10 Hz)
+        this.buffer = [];
+        this.initBuffer();
+
+        this.bindEvents();
+        this.render();
+    }
+
+    initBuffer() {
+        const totalSamples = 600; // 60 seconds at 10 Hz
+        this.buffer = [];
+
+        for (let i = 0; i < totalSamples; i++) {
+            const t = i * 0.1;
+            
+            // Baseline before/after load shift
+            // BL starts normal (~128.5 kg), then at t=6.2s drops to 108.2 kg (-24.1 kg drop!)
+            let blBase = 108.2;
+            let flBase = 132.5;
+            let frBase = 131.0;
+            let brBase = 110.7;
+
+            if (t < 5.8) {
+                blBase = 128.5;
+                flBase = 127.2;
+                frBase = 126.1;
+                brBase = 106.6;
+            } else if (t < 6.4) {
+                const f = (t - 5.8) / 0.6;
+                blBase = 128.5 - f * (128.5 - 108.2);
+                flBase = 127.2 + f * (132.5 - 127.2);
+                frBase = 126.1 + f * (131.0 - 126.1);
+                brBase = 106.6 + f * (110.7 - 106.6);
+            }
+
+            // Natural physiological oscillation
+            const wave = Math.sin(t * 1.2) * 0.4;
+            const flFiltered = flBase + wave;
+            const frFiltered = frBase - wave * 0.7;
+            const blFiltered = blBase - wave * 0.8;
+            const brFiltered = brBase + wave * 0.5;
+
+            // Micro-vibrations for raw 10 Hz sensor signal
+            const noiseFL = (Math.sin(i * 1.9) * 0.75 + Math.cos(i * 3.3) * 0.65);
+            const noiseFR = (Math.sin(i * 2.1) * 0.70 + Math.cos(i * 2.9) * 0.60);
+            const noiseBL = (Math.sin(i * 1.7) * 0.80 + Math.cos(i * 3.7) * 0.55);
+            const noiseBR = (Math.sin(i * 2.3) * 0.65 + Math.cos(i * 3.1) * 0.65);
+
+            const flRaw = flFiltered + noiseFL;
+            const frRaw = frFiltered + noiseFR;
+            const blRaw = blFiltered + noiseBL;
+            const brRaw = brFiltered + noiseBR;
+
+            const isAnomaly = Math.abs(t - 6.2) < 0.15;
+
+            this.buffer.push({
+                t: +t.toFixed(1),
+                flFiltered: +flFiltered.toFixed(2),
+                frFiltered: +frFiltered.toFixed(2),
+                blFiltered: +blFiltered.toFixed(2),
+                brFiltered: +brFiltered.toFixed(2),
+                flRaw: +flRaw.toFixed(2),
+                frRaw: +frRaw.toFixed(2),
+                blRaw: +blRaw.toFixed(2),
+                brRaw: +brRaw.toFixed(2),
+                isAnomaly: isAnomaly
+            });
+        }
+    }
+
+    pushLiveSample(fl, fr, bl, br) {
+        if (!this.buffer.length) return;
+        const lastT = this.buffer[this.buffer.length - 1].t + 0.1;
+        
+        const noiseFL = (Math.random() - 0.5) * 1.2;
+        const noiseFR = (Math.random() - 0.5) * 1.2;
+        const noiseBL = (Math.random() - 0.5) * 1.2;
+        const noiseBR = (Math.random() - 0.5) * 1.2;
+
+        this.buffer.push({
+            t: +lastT.toFixed(1),
+            flFiltered: +fl.toFixed(2),
+            frFiltered: +fr.toFixed(2),
+            blFiltered: +bl.toFixed(2),
+            brFiltered: +br.toFixed(2),
+            flRaw: +(fl + noiseFL).toFixed(2),
+            frRaw: +(fr + noiseFR).toFixed(2),
+            blRaw: +(bl + noiseBL).toFixed(2),
+            brRaw: +(br + noiseBR).toFixed(2),
+            isAnomaly: false
+        });
+
+        if (this.buffer.length > 600) {
+            this.buffer.shift();
+        }
+
+        this.renderCurves();
+        if (this.isHovering) {
+            this.updateCrosshairByRatio(this.lastHoverRatio);
+        }
+    }
+
+    setMode(mode) {
+        this.mode = mode;
+
+        // Update button states
+        const btnFiltered = document.getElementById('tab-filtered-data');
+        const btnRaw = document.getElementById('tab-raw-data');
+        const btnDev = document.getElementById('tab-deviation-data');
+        const activeClass = "px-2.5 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer transition";
+        const inactiveClass = "px-2.5 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer transition";
+
+        if (btnFiltered) btnFiltered.className = (mode === 'filtered') ? activeClass : inactiveClass;
+        if (btnRaw) btnRaw.className = (mode === 'raw') ? activeClass : inactiveClass;
+        if (btnDev) btnDev.className = (mode === 'deviation') ? activeClass : inactiveClass;
+
+        // Update threshold badge label
+        const bandLabel = document.getElementById('band-label');
+        if (bandLabel) {
+            if (mode === 'deviation') {
+                bandLabel.textContent = "Dengeli Dağılım Toleransı (±8 kg)";
+            } else {
+                bandLabel.textContent = "Normal Tolerans Aralığı (115 - 140 kg)";
+            }
+        }
+
+        this.render();
+    }
+
+    setRange(rangeSec) {
+        this.rangeSec = rangeSec;
+
+        const btn10 = document.getElementById('btn-range-10s');
+        const btn30 = document.getElementById('btn-range-30s');
+        const btn60 = document.getElementById('btn-range-60s');
+        const activeClass = "px-2 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer transition";
+        const inactiveClass = "px-2 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer transition";
+
+        if (btn10) btn10.className = (rangeSec === 10) ? activeClass : inactiveClass;
+        if (btn30) btn30.className = (rangeSec === 30) ? activeClass : inactiveClass;
+        if (btn60) btn60.className = (rangeSec === 60) ? activeClass : inactiveClass;
+
+        this.render();
+    }
+
+    highlightLeg(legId) {
+        this.activeLegHighlight = legId;
+        const curves = [
+            { id: 'fl', el: this.curveFL },
+            { id: 'fr', el: this.curveFR },
+            { id: 'bl', el: this.curveBL },
+            { id: 'br', el: this.curveBR }
+        ];
+
+        curves.forEach(item => {
+            if (!item.el) return;
+            if (!legId) {
+                item.el.style.opacity = '1';
+                item.el.setAttribute('stroke-width', '2.3');
+            } else if (item.id === legId) {
+                item.el.style.opacity = '1';
+                item.el.setAttribute('stroke-width', '3.2');
+            } else {
+                item.el.style.opacity = '0.15';
+                item.el.setAttribute('stroke-width', '2.0');
+            }
+        });
+    }
+
+    getActiveSamples() {
+        const count = Math.min(this.buffer.length, this.rangeSec * 10);
+        return this.buffer.slice(0, count);
+    }
+
+    getY(val, minY, maxY) {
+        const clamped = Math.max(minY, Math.min(maxY, val));
+        return this.padTop + this.plotHeight - ((clamped - minY) / (maxY - minY)) * this.plotHeight;
+    }
+
+    getX(index, totalCount) {
+        if (totalCount <= 1) return this.padLeft;
+        return this.padLeft + (index / (totalCount - 1)) * this.plotWidth;
+    }
+
+    render() {
+        this.renderGridAndAxes();
+        this.renderThresholdBand();
+        this.renderAnomalyMarker();
+        this.renderCurves();
+    }
+
+    renderGridAndAxes() {
+        const isDev = (this.mode === 'deviation');
+        const minY = isDev ? -25 : 80;
+        const maxY = isDev ? 25 : 160;
+        const yVals = isDev ? [-20, -10, 0, 10, 20] : [80, 100, 120, 140, 160];
+
+        // 1. Horizontal grid lines & Y-Axis Labels
+        let horizHtml = '';
+        let yLabelsHtml = `<text x="12" y="16" font-size="10" font-weight="600" fill="#64748B" font-family="Inter, sans-serif">${isDev ? 'Δ Yük (kg)' : 'Yük (kg)'}</text>`;
+
+        yVals.forEach(v => {
+            const y = this.getY(v, minY, maxY);
+            const isZero = isDev && (v === 0);
+            
+            horizHtml += `<line x1="${this.padLeft}" y1="${y}" x2="${this.padLeft + this.plotWidth}" y2="${y}" stroke="${isZero ? '#94A3B8' : '#E2E8F0'}" stroke-width="${isZero ? '1.5' : '1'}" stroke-dasharray="${isZero ? '4,4' : '3,3'}" />`;
+            
+            const labelStr = isDev ? (v > 0 ? `+${v}` : `${v}`) : `${v}`;
+            yLabelsHtml += `<text x="${this.padLeft - 8}" y="${y + 3.5}" text-anchor="end" font-size="10" font-family="JetBrains Mono, monospace" fill="${isZero ? '#334155' : '#94A3B8'}">${labelStr}</text>`;
+        });
+
+        if (this.gHorizGrid) this.gHorizGrid.innerHTML = horizHtml;
+        if (this.gYLabels) this.gYLabels.innerHTML = yLabelsHtml;
+
+        // 2. Vertical grid lines & X-Axis Timestamps
+        let vertHtml = '';
+        let xLabelsHtml = '';
+        const numTicks = 6;
+        const stepSec = this.rangeSec / (numTicks - 1);
+
+        // Baseline line
+        vertHtml += `<line x1="${this.padLeft}" y1="${this.padTop + this.plotHeight}" x2="${this.padLeft + this.plotWidth}" y2="${this.padTop + this.plotHeight}" stroke="#CBD5E1" stroke-width="1.2" />`;
+
+        for (let i = 0; i < numTicks; i++) {
+            const sec = i * stepSec;
+            const x = this.padLeft + (i / (numTicks - 1)) * this.plotWidth;
+
+            vertHtml += `<line x1="${x}" y1="${this.padTop}" x2="${x}" y2="${this.padTop + this.plotHeight}" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3,3" />`;
+            vertHtml += `<line x1="${x}" y1="${this.padTop + this.plotHeight}" x2="${x}" y2="${this.padTop + this.plotHeight + 4}" stroke="#94A3B8" stroke-width="1" />`;
+
+            const m = String(Math.floor(sec / 60)).padStart(2, '0');
+            const s = String(Math.floor(sec % 60)).padStart(2, '0');
+            xLabelsHtml += `<text x="${x}" y="${this.padTop + this.plotHeight + 17}" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace" fill="#64748B">${m}:${s}</text>`;
+        }
+
+        xLabelsHtml += `<text x="${this.viewWidth - 10}" y="${this.padTop + this.plotHeight + 17}" text-anchor="end" font-size="10" font-weight="600" fill="#64748B" font-family="Inter, sans-serif">t (sn)</text>`;
+
+        if (this.gVertGrid) this.gVertGrid.innerHTML = vertHtml;
+        if (this.gXLabels) this.gXLabels.innerHTML = xLabelsHtml;
+    }
+
+    renderThresholdBand() {
+        if (!this.gThreshold) return;
+        const isDev = (this.mode === 'deviation');
+        const minY = isDev ? -25 : 80;
+        const maxY = isDev ? 25 : 160;
+
+        const valTop = isDev ? 8 : 140;
+        const valBottom = isDev ? -8 : 115;
+
+        const yTop = this.getY(valTop, minY, maxY);
+        const yBottom = this.getY(valBottom, minY, maxY);
+        const height = Math.abs(yBottom - yTop);
+
+        const title = isDev ? "Dengeli Dağılım Toleransı (±8 kg)" : "Normal Dağılım Bandı (115 - 140 kg)";
+
+        this.gThreshold.innerHTML = `
+            <rect x="${this.padLeft}" y="${yTop}" width="${this.plotWidth}" height="${height}" fill="url(#bandGrad)" stroke="#10B981" stroke-width="1" stroke-dasharray="3,3" stroke-opacity="0.35" rx="3" />
+            <text x="${this.padLeft + 10}" y="${yTop + 14}" font-size="9.5" font-weight="600" fill="#059669" font-family="Inter, sans-serif" opacity="0.9">${title}</text>
+        `;
+    }
+
+    renderAnomalyMarker() {
+        if (!this.gAnomaly) return;
+        // The load shift is around t = 6.2s
+        const tAnomaly = 6.2;
+        if (tAnomaly > this.rangeSec) {
+            this.gAnomaly.innerHTML = '';
+            return;
+        }
+
+        const x = this.padLeft + (tAnomaly / this.rangeSec) * this.plotWidth;
+
+        this.gAnomaly.innerHTML = `
+            <!-- Halo Glow -->
+            <rect x="${x - 14}" y="${this.padTop}" width="28" height="${this.plotHeight}" fill="url(#anomalyGlow)" pointer-events="none" />
+            
+            <!-- Red Dashed Vertical Line -->
+            <line x1="${x}" y1="${this.padTop}" x2="${x}" y2="${this.padTop + this.plotHeight}" stroke="#EF4444" stroke-width="1.5" stroke-dasharray="3,3" opacity="0.9" />
+            
+            <!-- Warning Badge Pill -->
+            <g id="svg-anomaly-badge" transform="translate(${x}, ${this.padTop + 4})">
+                <rect x="-64" y="0" width="128" height="20" rx="10" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="1.2" filter="drop-shadow(0 1px 2px rgba(0,0,0,0.06))" />
+                <circle cx="-52" cy="10" r="3.5" fill="#EF4444" />
+                <text x="-43" y="13.5" font-size="9" font-weight="600" fill="#991B1B" font-family="Inter, sans-serif">⚠️ Yük Kayması (24.1 kg)</text>
+            </g>
+        `;
+
+        const badge = document.getElementById('svg-anomaly-badge');
+        if (badge && this.anomalyCard) {
+            badge.addEventListener('mouseenter', () => {
+                const containerRect = this.container.getBoundingClientRect();
+                const pixelX = (x / this.viewWidth) * containerRect.width;
+                this.anomalyCard.style.left = `${Math.min(containerRect.width - 270, Math.max(10, pixelX - 130))}px`;
+                this.anomalyCard.style.top = `35px`;
+                this.anomalyCard.classList.remove('opacity-0');
+                this.anomalyCard.classList.add('opacity-100');
+            });
+
+            badge.addEventListener('mouseleave', () => {
+                this.anomalyCard.classList.remove('opacity-100');
+                this.anomalyCard.classList.add('opacity-0');
+            });
+        }
+    }
+
+    renderCurves() {
+        const samples = this.getActiveSamples();
+        if (samples.length < 2) return;
+
+        const isDev = (this.mode === 'deviation');
+        const minY = isDev ? -25 : 80;
+        const maxY = isDev ? 25 : 160;
+
+        let pathFL = "";
+        let pathFR = "";
+        let pathBL = "";
+        let pathBR = "";
+
+        samples.forEach((s, idx) => {
+            const x = this.getX(idx, samples.length);
+            
+            let valFL = (this.mode === 'raw') ? s.flRaw : s.flFiltered;
+            let valFR = (this.mode === 'raw') ? s.frRaw : s.frFiltered;
+            let valBL = (this.mode === 'raw') ? s.blRaw : s.blFiltered;
+            let valBR = (this.mode === 'raw') ? s.brRaw : s.brFiltered;
+
+            if (isDev) {
+                const mean = (valFL + valFR + valBL + valBR) / 4;
+                valFL = valFL - mean;
+                valFR = valFR - mean;
+                valBL = valBL - mean;
+                valBR = valBR - mean;
+            }
+
+            const yFL = this.getY(valFL, minY, maxY);
+            const yFR = this.getY(valFR, minY, maxY);
+            const yBL = this.getY(valBL, minY, maxY);
+            const yBR = this.getY(valBR, minY, maxY);
+
+            const prefix = (idx === 0) ? "M" : "L";
+            pathFL += `${prefix}${x.toFixed(1)},${yFL.toFixed(1)} `;
+            pathFR += `${prefix}${x.toFixed(1)},${yFR.toFixed(1)} `;
+            pathBL += `${prefix}${x.toFixed(1)},${yBL.toFixed(1)} `;
+            pathBR += `${prefix}${x.toFixed(1)},${yBR.toFixed(1)} `;
+        });
+
+        if (this.curveFL) this.curveFL.setAttribute('d', pathFL);
+        if (this.curveFR) this.curveFR.setAttribute('d', pathFR);
+        if (this.curveBL) this.curveBL.setAttribute('d', pathBL);
+        if (this.curveBR) this.curveBR.setAttribute('d', pathBR);
+    }
+
+    updateCrosshairByRatio(ratio) {
+        const samples = this.getActiveSamples();
+        if (!samples.length) return;
+
+        const idx = Math.min(samples.length - 1, Math.max(0, Math.round(ratio * (samples.length - 1))));
+        const s = samples[idx];
+        const svgX = this.getX(idx, samples.length);
+
+        const isDev = (this.mode === 'deviation');
+        const minY = isDev ? -25 : 80;
+        const maxY = isDev ? 25 : 160;
+
+        let valFL = (this.mode === 'raw') ? s.flRaw : s.flFiltered;
+        let valFR = (this.mode === 'raw') ? s.frRaw : s.frFiltered;
+        let valBL = (this.mode === 'raw') ? s.blRaw : s.blFiltered;
+        let valBR = (this.mode === 'raw') ? s.brRaw : s.brFiltered;
+
+        const totalWeight = valFL + valFR + valBL + valBR;
+
+        let displayFL = valFL;
+        let displayFR = valFR;
+        let displayBL = valBL;
+        let displayBR = valBR;
+
+        if (isDev) {
+            const mean = totalWeight / 4;
+            displayFL = valFL - mean;
+            displayFR = valFR - mean;
+            displayBL = valBL - mean;
+            displayBR = valBR - mean;
+        }
+
+        const yFL = this.getY(displayFL, minY, maxY);
+        const yFR = this.getY(displayFR, minY, maxY);
+        const yBL = this.getY(displayBL, minY, maxY);
+        const yBR = this.getY(displayBR, minY, maxY);
+
+        // Position crosshair vertical line
+        if (this.crosshairLine) {
+            this.crosshairLine.setAttribute('x1', svgX);
+            this.crosshairLine.setAttribute('x2', svgX);
+            this.crosshairLine.setAttribute('opacity', '1');
+        }
+
+        // Position 4 snap dots
+        if (this.snapFL) { this.snapFL.setAttribute('cx', svgX); this.snapFL.setAttribute('cy', yFL); this.snapFL.setAttribute('opacity', '1'); }
+        if (this.snapFR) { this.snapFR.setAttribute('cx', svgX); this.snapFR.setAttribute('cy', yFR); this.snapFR.setAttribute('opacity', '1'); }
+        if (this.snapBL) { this.snapBL.setAttribute('cx', svgX); this.snapBL.setAttribute('cy', yBL); this.snapBL.setAttribute('opacity', '1'); }
+        if (this.snapBR) { this.snapBR.setAttribute('cx', svgX); this.snapBR.setAttribute('cy', yBR); this.snapBR.setAttribute('opacity', '1'); }
+
+        // Populate tooltip card
+        const m = String(Math.floor(s.t / 60)).padStart(2, '0');
+        const secPart = String(Math.floor(s.t % 60)).padStart(2, '0');
+        const subsec = Math.floor((s.t % 1) * 10);
+        const timeStr = `${m}:${secPart}.${subsec}`;
+
+        const ttTime = document.getElementById('tooltip-time-text');
+        const ttSec = document.getElementById('tooltip-sec-text');
+        const ttFL = document.getElementById('tt-val-fl');
+        const ttFR = document.getElementById('tt-val-fr');
+        const ttBL = document.getElementById('tt-val-bl');
+        const ttBR = document.getElementById('tt-val-br');
+        const ttTotal = document.getElementById('tt-total-weight');
+        const ttRatio = document.getElementById('tt-balance-ratio');
+
+        if (ttTime) ttTime.textContent = timeStr;
+        if (ttSec) ttSec.textContent = `t = ${s.t.toFixed(1)} sn`;
+
+        const unit = isDev ? 'Δ kg' : 'kg';
+        const formatVal = (v) => isDev ? (v > 0 ? `+${v.toFixed(1)} ${unit}` : `${v.toFixed(1)} ${unit}`) : `${v.toFixed(1)} ${unit}`;
+
+        if (ttFL) ttFL.textContent = formatVal(displayFL);
+        if (ttFR) ttFR.textContent = formatVal(displayFR);
+        if (ttBL) ttBL.textContent = formatVal(displayBL);
+        if (ttBR) ttBR.textContent = formatVal(displayBR);
+        if (ttTotal) ttTotal.textContent = `${totalWeight.toFixed(1)} kg`;
+        
+        const frontPct = ((valFL + valFR) / totalWeight) * 100;
+        if (ttRatio) ttRatio.textContent = `Ön: %${frontPct.toFixed(1)}`;
+
+        // Position tooltip popover
+        if (this.tooltip && this.container) {
+            const containerRect = this.container.getBoundingClientRect();
+            const pixelX = (svgX / this.viewWidth) * containerRect.width;
+            
+            // Avoid overflow
+            const tooltipWidth = 230;
+            let targetLeft = pixelX;
+            if (targetLeft + tooltipWidth / 2 > containerRect.width - 15) {
+                targetLeft = containerRect.width - tooltipWidth / 2 - 15;
+            } else if (targetLeft - tooltipWidth / 2 < 15) {
+                targetLeft = tooltipWidth / 2 + 15;
+            }
+
+            this.tooltip.style.left = `${targetLeft}px`;
+            this.tooltip.style.top = `15px`;
+            this.tooltip.classList.remove('opacity-0');
+            this.tooltip.classList.add('opacity-100');
+        }
+    }
+
+    hideCrosshair() {
+        this.isHovering = false;
+        if (this.crosshairLine) this.crosshairLine.setAttribute('opacity', '0');
+        if (this.snapFL) this.snapFL.setAttribute('opacity', '0');
+        if (this.snapFR) this.snapFR.setAttribute('opacity', '0');
+        if (this.snapBL) this.snapBL.setAttribute('opacity', '0');
+        if (this.snapBR) this.snapBR.setAttribute('opacity', '0');
+        if (this.tooltip) {
+            this.tooltip.classList.remove('opacity-100');
+            this.tooltip.classList.add('opacity-0');
+        }
+    }
+
+    bindEvents() {
+        if (!this.hitRect) return;
+
+        // Hover & Mousemove interaction on hit rect
+        const handleMove = (e) => {
+            const rect = this.hitRect.getBoundingClientRect();
+            const clientX = (e.touches ? e.touches[0].clientX : e.clientX);
+            const clampedX = Math.max(rect.left, Math.min(rect.right, clientX));
+            const ratio = (clampedX - rect.left) / rect.width;
+            
+            this.isHovering = true;
+            this.lastHoverRatio = ratio;
+            this.updateCrosshairByRatio(ratio);
+        };
+
+        this.hitRect.addEventListener('mousemove', handleMove);
+        this.hitRect.addEventListener('touchmove', handleMove, { passive: true });
+        this.hitRect.addEventListener('mouseleave', () => this.hideCrosshair());
+        this.hitRect.addEventListener('touchend', () => this.hideCrosshair());
+
+        // Mode buttons
+        const btnFiltered = document.getElementById('tab-filtered-data');
+        const btnRaw = document.getElementById('tab-raw-data');
+        const btnDev = document.getElementById('tab-deviation-data');
+        if (btnFiltered) btnFiltered.addEventListener('click', () => this.setMode('filtered'));
+        if (btnRaw) btnRaw.addEventListener('click', () => this.setMode('raw'));
+        if (btnDev) btnDev.addEventListener('click', () => this.setMode('deviation'));
+
+        // Range buttons
+        const btn10 = document.getElementById('btn-range-10s');
+        const btn30 = document.getElementById('btn-range-30s');
+        const btn60 = document.getElementById('btn-range-60s');
+        if (btn10) btn10.addEventListener('click', () => this.setRange(10));
+        if (btn30) btn30.addEventListener('click', () => this.setRange(30));
+        if (btn60) btn60.addEventListener('click', () => this.setRange(60));
+
+        // Legend hover chips
+        document.querySelectorAll('.legend-chip').forEach(chip => {
+            const leg = chip.dataset.leg;
+            chip.addEventListener('mouseenter', () => this.highlightLeg(leg));
+            chip.addEventListener('mouseleave', () => this.highlightLeg(null));
+        });
     }
 }
 
@@ -745,6 +1308,9 @@ document.addEventListener('DOMContentLoaded', () => {
     initClock();
 
     mainStage = createStudioStage('three-canvas-container');
+
+    // Initialize Telemetry Chart Visualizer
+    window.telemetryChart = new TelemetryChartEngine();
 
     const resetBtn = document.getElementById('orbit-reset-btn');
     if (resetBtn) {
@@ -797,16 +1363,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSimulate.addEventListener('click', () => simulator.toggle());
     }
 
-    const btnRaw = document.getElementById('tab-raw-data');
-    if (btnRaw) {
-        btnRaw.addEventListener('click', () => setTelemetryFilter(false));
-    }
-
-    const btnFiltered = document.getElementById('tab-filtered-data');
-    if (btnFiltered) {
-        btnFiltered.addEventListener('click', () => setTelemetryFilter(true));
-    }
-
     const btnLogs = document.getElementById('btn-system-logs');
     if (btnLogs) {
         btnLogs.addEventListener('click', openSystemLogsModal);
@@ -815,5 +1371,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => {
         if (mainStage) mainStage.resize();
         if (modalStage && modal && !modal.classList.contains('hidden')) modalStage.resize();
+        if (window.telemetryChart) window.telemetryChart.render();
     });
 });
