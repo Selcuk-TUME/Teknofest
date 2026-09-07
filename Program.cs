@@ -15,6 +15,16 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+var contentTypeProvider = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
+contentTypeProvider.Mappings[".fbx"] = "application/octet-stream";
+contentTypeProvider.Mappings[".png"] = "image/png";
+contentTypeProvider.Mappings[".jpg"] = "image/jpeg";
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    ContentTypeProvider = contentTypeProvider
+});
+
 app.UseRouting();
 
 app.UseAuthorization();

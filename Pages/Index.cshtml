@@ -1,352 +1,465 @@
 @page
 @model YeniKlasor.Pages.IndexModel
 @{
-    ViewData["Title"] = "İNGEK-İOT Analiz Paneli - Canlı Telemetri & Biyomekanik";
+    ViewData["Title"] = "Süt Sağım ve Tartı Takibi";
 }
 
-<!-- Dashboard Content Container -->
-<div class="flex-1 p-margin-mobile md:p-margin-desktop max-w-container-max mx-auto w-full flex flex-col gap-stack-md">
+<!-- Page Header: Max 5-6 words title, max 2 sentences subtext -->
+<div class="mb-10">
+    <div class="flex items-center gap-2 text-xs font-medium text-slate-500 mb-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>Canlı Tartım İstasyonu</span>
+        <span>•</span>
+        <span>Ahır A</span>
+    </div>
+    <h1 class="text-3xl sm:text-4xl font-semibold text-slate-900 tracking-tight font-headline-lg">
+        Süt Sağım ve Tartı Takibi
+    </h1>
+    <p class="text-base text-slate-500 mt-2 max-w-2xl font-body-md">
+        Hayvan kimliği doğrulandı. Dört bacak yük dağılımı ve canlı ağırlık anlık olarak izleniyor.
+    </p>
+</div>
 
-    <!-- KPI Row -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-stack-md">
-        <!-- Card 1: Animal Info -->
-        <div class="glass-card rounded-xl p-5 flex flex-col justify-between glow-emerald border-t-2 border-t-primary">
-            <div class="flex justify-between items-start mb-4">
-                <div class="flex items-center gap-2 text-text-muted font-data-sm text-data-sm">
-                    <span class="material-symbols-outlined text-sm">pets</span> Kimlik Doğrulandı
-                </div>
-                <span class="px-2 py-0.5 bg-primary/10 text-primary rounded text-[10px] font-data-sm font-bold border border-primary/20">RFID</span>
-            </div>
+<!-- Primary Metrics Row (Minimalist Stripe/Apple style, generous whitespace, no nested neon boxes) -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-6 py-6 border-y border-slate-200/80 mb-10">
+    <!-- Metric 1: Canlı Ağırlık -->
+    <div>
+        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Canlı Ağırlık</span>
+        <div class="mt-1 flex items-baseline gap-1.5">
+            <span class="text-3xl sm:text-4xl font-semibold text-slate-900 tracking-tight tabular-nums font-data" id="metric-total-weight">
+                @Model.DashboardData.Weight.CurrentWeightKg.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
+            </span>
+            <span class="text-sm font-medium text-slate-500">kg</span>
+        </div>
+        <p class="text-xs text-emerald-600 mt-1">Son 5 dakikadır stabil</p>
+    </div>
+
+    <!-- Metric 2: Kimlik -->
+    <div>
+        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Hayvan Kimliği</span>
+        <div class="mt-1 text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight font-data" id="metric-animal-tag">
+            @Model.DashboardData.Animal.RfidTag
+        </div>
+        <p class="text-xs text-slate-500 mt-1">@Model.DashboardData.Animal.Breed, @Model.DashboardData.Animal.Age yaşında</p>
+    </div>
+
+    <!-- Metric 3: Ön / Arka Oranı -->
+    <div>
+        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Ön ve Arka Yükü</span>
+        <div class="mt-1 text-2xl sm:text-3xl font-semibold text-slate-900 tracking-tight font-data">
+            <span id="front-load-text">@Model.DashboardData.LegLoads.FrontTotalPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</span>
+            <span class="text-slate-300 font-normal">:</span>
+            <span id="back-load-text">@Model.DashboardData.LegLoads.BackTotalPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</span>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Denge aralığı normal</p>
+    </div>
+
+    <!-- Metric 4: Tırnak Durumu -->
+    <div>
+        <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Duruş Değerlendirmesi</span>
+        <div class="mt-1 text-2xl sm:text-3xl font-semibold text-amber-600 tracking-tight">
+            Sol Arka Hafif
+        </div>
+        <p class="text-xs text-slate-500 mt-1">Yük sağ tarafa aktarılıyor</p>
+    </div>
+</div>
+
+<!-- Main Section: 3D Digital Twin & Leg Telemetry Breakdown -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start mb-12">
+    <!-- Left Column (7 cols): 3D Cow Visualizer Stage -->
+    <div class="lg:col-span-7 flex flex-col">
+        <div class="flex items-center justify-between pb-3">
             <div>
-                <h2 class="font-data-lg text-data-lg text-text-primary mb-1 tracking-wider" id="metric-animal-tag">@Model.DashboardData.Animal.RfidTag</h2>
-                <p class="font-body-sm text-body-sm text-text-muted mb-3">@Model.DashboardData.Animal.Breed, Yaş: @Model.DashboardData.Animal.Age</p>
-                <div class="flex items-center gap-2 text-primary font-data-sm text-data-sm bg-primary/5 p-2 rounded border border-primary/10 inline-flex">
-                    <span class="material-symbols-outlined text-sm pulse-dot">fiber_manual_record</span> @Model.DashboardData.Animal.StatusText
-                </div>
+                <h2 class="text-lg font-semibold text-slate-900 font-headline-lg">3D Duruş ve Yük Analizi</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Modeli 360° döndürerek ayak temasını inceleyin.</p>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button type="button" class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 flex items-center justify-center transition cursor-pointer" id="orbit-reset-btn" title="Açıyı Sıfırla">
+                    <span class="material-symbols-outlined text-base">restart_alt</span>
+                </button>
+                <button type="button" class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 flex items-center justify-center transition cursor-pointer" id="expand-modal-btn" title="Tam Ekran İncele">
+                    <span class="material-symbols-outlined text-base">open_in_full</span>
+                </button>
             </div>
         </div>
 
-        <!-- Card 2: Weight -->
-        <div class="glass-card rounded-xl p-5 flex flex-col justify-between border-t-2 border-t-secondary glow-cyan">
-            <div class="flex justify-between items-start mb-2">
-                <div class="flex items-center gap-2 text-text-muted font-data-sm text-data-sm">
-                    <span class="material-symbols-outlined text-sm">scale</span> Canlı Ağırlık
-                </div>
-                <span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+        <!-- 3D Studio Canvas Area (Fills 75-80% of viewport with tight isometric framing) -->
+        <div class="relative w-full aspect-[16/11] min-h-[380px] sm:min-h-[440px] rounded-2xl bg-[#F8FAFC] border border-slate-200/90 overflow-hidden select-none" id="three-stage-wrapper">
+            <div class="w-full h-full cursor-grab active:cursor-grabbing absolute inset-0" id="three-canvas-container"></div>
+            
+            <!-- Minimal Helper Pills -->
+            <div class="absolute top-4 left-4 pointer-events-none flex items-center gap-2 bg-white/90 backdrop-blur-xs px-3 py-1 rounded-full border border-slate-200 text-xs font-medium text-slate-700 shadow-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>360° Etkileşimli Model</span>
             </div>
-            <div class="flex flex-col items-end">
-                <div class="flex items-baseline gap-2">
-                    <span class="font-display-lg text-display-lg text-text-primary tabular-nums tracking-tighter" id="metric-total-weight">
-                        @Model.DashboardData.Weight.CurrentWeightKg.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)
-                    </span>
-                    <span class="font-data-sm text-data-sm text-text-muted">kg</span>
-                </div>
-                <div class="flex items-center gap-1 text-secondary font-data-sm text-data-sm micro-fluctuation mt-1">
-                    <span class="material-symbols-outlined text-[12px]">moving</span> @Model.DashboardData.Weight.FluctuationText
-                </div>
-            </div>
-        </div>
 
-        <!-- Card 3: Risk Score -->
-        <div class="glass-card rounded-xl p-5 flex flex-col justify-between border-t-2 border-t-warning-amber glow-amber">
-            <div class="flex justify-between items-start mb-2">
-                <div class="flex items-center gap-2 text-text-muted font-data-sm text-data-sm">
-                    <span class="material-symbols-outlined text-sm">health_and_safety</span> Biyomekanik Risk
-                </div>
-                <span class="material-symbols-outlined text-warning-amber" style="font-variation-settings: 'FILL' 1;">warning</span>
-            </div>
-            <div class="flex items-center gap-4">
-                <div class="relative w-16 h-16 flex items-center justify-center">
-                    <!-- SVG Gauge Simulation -->
-                    <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                        <path class="text-surface-variant" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-width="3"></path>
-                        <path class="text-warning-amber" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" stroke-dasharray="@Model.DashboardData.Risk.Score, 100" stroke-width="3"></path>
+            <!-- Minimal Model Loading Shimmer / Indicator -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-500" id="model-loading-indicator">
+                <div class="flex items-center gap-2 px-3.5 py-1.5 bg-white/90 backdrop-blur-xs rounded-full border border-slate-200 shadow-xs text-xs text-slate-500 font-medium">
+                    <svg class="animate-spin h-3.5 w-3.5 text-slate-600" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                     </svg>
-                    <span class="absolute font-data-sm text-data-sm font-bold text-text-primary">@Model.DashboardData.Risk.Score</span>
+                    <span>Model yükleniyor...</span>
                 </div>
+            </div>
+
+            <div class="absolute bottom-3 right-3 pointer-events-none text-[11px] text-slate-400 bg-white/85 backdrop-blur-xs px-2.5 py-1 rounded-md border border-slate-200/60 shadow-2xs">
+                Çevirmek için sürükleyin
+            </div>
+
+            <!-- Dynamic 3D-Anchored Hoof Hotspot Pins (Coordinates calculated in real-time by Three.js) -->
+            <div class="hotspot-anchor opacity-0" id="hotspot-FL" data-leg="FL">
+                <div class="hotspot-pin hotspot-pin-normal" title="FL (Sol Ön)"></div>
+            </div>
+            <div class="hotspot-anchor opacity-0" id="hotspot-FR" data-leg="FR">
+                <div class="hotspot-pin hotspot-pin-normal" title="FR (Sağ Ön)"></div>
+            </div>
+            <div class="hotspot-anchor opacity-0" id="hotspot-BL" data-leg="BL">
+                <div class="hotspot-pin hotspot-pin-warn" title="BL (Sol Arka - Hafif Yük)"></div>
+            </div>
+            <div class="hotspot-anchor opacity-0" id="hotspot-BR" data-leg="BR">
+                <div class="hotspot-pin hotspot-pin-normal" title="BR (Sağ Arka)"></div>
+            </div>
+
+            <!-- Compact Floating Glassmorphic Tooltip -->
+            <div class="glass-tooltip absolute opacity-0 z-30 p-3 rounded-xl text-slate-800 w-52 transform -translate-x-1/2 -translate-y-full pointer-events-none" id="hoof-tooltip" style="margin-top: -12px;">
+                <div class="flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
+                    <span class="text-xs font-semibold text-slate-900" id="tooltip-title">BL - Sol Arka</span>
+                    <span class="text-[10px] font-semibold px-2 py-0.5 rounded text-amber-700 bg-amber-50 border border-amber-200/60" id="tooltip-status">Hafif Yük</span>
+                </div>
+                <div class="text-xs space-y-1">
+                    <div class="flex justify-between items-baseline">
+                        <span class="text-slate-400 text-[11px]">Canlı Ağırlık:</span>
+                        <span class="font-semibold text-slate-900 font-data" id="tooltip-weight">108.2 kg</span>
+                    </div>
+                    <div class="flex justify-between items-baseline">
+                        <span class="text-slate-400 text-[11px]">Toplam Yük Payı:</span>
+                        <span class="font-medium text-slate-700 font-data" id="tooltip-share">%22.4</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column (5 cols): Hoof Distribution Details & Bullet Points -->
+    <div class="lg:col-span-5 flex flex-col gap-6 pt-2">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-900 font-headline-lg">Dört Ayak Yük Dağılımı</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Sensörlerden okunan canlı ağırlık ve yüzdeler.</p>
+        </div>
+
+        <!-- 4 Leg Clean Rows -->
+        <div class="divide-y divide-slate-100 border-y border-slate-100">
+            <!-- FL -->
+            <div class="py-3 flex items-center justify-between">
                 <div>
-                    <div class="font-data-lg text-data-lg text-warning-amber">
-                        @Model.DashboardData.Risk.Score<span class="text-sm text-text-muted">/@Model.DashboardData.Risk.MaxScore</span>
-                    </div>
-                    <div class="px-2 py-0.5 @Model.DashboardData.Risk.RiskBadgeClass rounded text-[10px] font-data-sm font-semibold inline-block mt-1 border">
-                        @Model.DashboardData.Risk.RiskLevel
-                    </div>
+                    <div class="text-sm font-medium text-slate-900">Sol Ön Ayak (FL)</div>
+                    <div class="text-xs text-slate-400">Yük hücresi #01</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-semibold text-slate-900 font-data" id="val-fl-kg">132.5 kg</div>
+                    <div class="text-xs text-slate-500" id="pct-fl">%27.5 • Dengeli</div>
+                </div>
+            </div>
+
+            <!-- FR -->
+            <div class="py-3 flex items-center justify-between">
+                <div>
+                    <div class="text-sm font-medium text-slate-900">Sağ Ön Ayak (FR)</div>
+                    <div class="text-xs text-slate-400">Yük hücresi #02</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-semibold text-slate-900 font-data" id="val-fr-kg">131.0 kg</div>
+                    <div class="text-xs text-slate-500" id="pct-fr">%27.1 • Dengeli</div>
+                </div>
+            </div>
+
+            <!-- BL (Light Leg) -->
+            <div class="py-3 flex items-center justify-between bg-amber-50/50 -mx-3 px-3 rounded-lg">
+                <div>
+                    <div class="text-sm font-medium text-amber-900">Sol Arka Ayak (BL)</div>
+                    <div class="text-xs text-amber-700">Eksik yüklenme tespit edildi</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-semibold text-amber-900 font-data" id="val-bl-kg">108.2 kg</div>
+                    <div class="text-xs font-medium text-amber-700" id="pct-bl">%22.4 • Düşük</div>
+                </div>
+            </div>
+
+            <!-- BR -->
+            <div class="py-3 flex items-center justify-between">
+                <div>
+                    <div class="text-sm font-medium text-slate-900">Sağ Arka Ayak (BR)</div>
+                    <div class="text-xs text-slate-400">Yük hücresi #04</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm font-semibold text-slate-900 font-data" id="val-br-kg">110.7 kg</div>
+                    <div class="text-xs text-slate-500" id="pct-br">%23.0 • Dengeli</div>
                 </div>
             </div>
         </div>
 
-        <!-- Card 4: Activity -->
-        <div class="glass-card rounded-xl p-5 flex flex-col justify-between border-t-2 border-t-surface-border">
-            <div class="flex justify-between items-start mb-4">
-                <div class="flex items-center gap-2 text-text-muted font-data-sm text-data-sm">
-                    <span class="material-symbols-outlined text-sm">directions_walk</span> Kinesiyoloji Olayları
-                </div>
+        <!-- Front vs Back Ratio Bar -->
+        <div>
+            <div class="flex justify-between text-xs font-medium text-slate-600 mb-1.5">
+                <span>Ön Yük: <strong class="text-slate-900 font-data">54.6%</strong></span>
+                <span>Arka Yük: <strong class="text-slate-900 font-data">45.4%</strong></span>
             </div>
-            <div class="space-y-3">
-                <div class="flex justify-between items-center bg-surface-container/50 p-2.5 rounded-lg border border-surface-border">
-                    <span class="font-body-sm text-body-sm text-text-muted">Adım Sayısı</span>
-                    <span class="font-data-sm text-data-sm text-secondary font-bold" id="metric-step-count">@Model.DashboardData.Kinesiology.StepCount</span>
-                </div>
-                <div class="flex justify-between items-center bg-surface-container/50 p-2.5 rounded-lg border border-surface-border">
-                    <span class="font-body-sm text-body-sm text-text-muted">Tekme/Kaldırma</span>
-                    <span class="font-data-sm text-data-sm text-alarm-rose font-bold" id="metric-kick-count">@Model.DashboardData.Kinesiology.KickLiftCount</span>
-                </div>
+            <div class="h-2 w-full bg-slate-100 rounded-full overflow-hidden flex gap-0.5">
+                <div class="h-full bg-slate-800 rounded-l-full transition-all duration-300" id="front-load-bar" style="width: 54.6%"></div>
+                <div class="h-full bg-slate-400 rounded-r-full transition-all duration-300" id="back-load-bar" style="width: 45.4%"></div>
+            </div>
+        </div>
+
+        <!-- Human-Centered Micro Bullet Points (3-4 words each) -->
+        <div class="pt-2">
+            <h3 class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Önemli Bulgular</h3>
+            <ul class="space-y-1.5 text-sm text-slate-600">
+                <li class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    <span>Sol arka ayak hafif</span>
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    <span>Ağırlık öne aktarıldı</span>
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                    <span>Tırnak kontrolü önerilir</span>
+                </li>
+                <li class="flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Genel duruş stabil</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Secondary Section: Telemetry Stream & Clean Diagnostics -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 pt-8 border-t border-slate-200/80 mb-12">
+    <!-- Telemetry Graph (7 cols) -->
+    <div class="lg:col-span-7 flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-slate-900 font-headline-lg">Telemetri Akışı</h2>
+                <p class="text-xs text-slate-500 mt-0.5">10 Hz hızında yük hücresi verileri.</p>
+            </div>
+            <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-xs">
+                <button type="button" id="tab-filtered-data" class="px-2.5 py-1 font-medium rounded-md bg-white text-slate-900 shadow-xs cursor-pointer">Filtrelenmiş</button>
+                <button type="button" id="tab-raw-data" class="px-2.5 py-1 font-medium rounded-md text-slate-500 hover:text-slate-900 cursor-pointer">Ham Veri</button>
+            </div>
+        </div>
+
+        <div class="h-56 bg-slate-50/70 rounded-2xl border border-slate-200 p-4 relative flex items-end">
+            <!-- Minimal Stripe-like Line Waveforms -->
+            <svg class="w-full h-full" preserveAspectRatio="none" viewBox="0 0 100 100">
+                <path d="M0,35 Q20,32 40,36 T70,33 T100,35" fill="none" stroke="#0F172A" stroke-width="1.8"></path>
+                <path d="M0,45 Q25,48 50,44 T80,47 T100,45" fill="none" stroke="#64748B" stroke-width="1.5"></path>
+                <path d="M0,70 Q30,65 60,72 T100,68" fill="none" stroke="#D97706" stroke-width="1.5"></path>
+                <path d="M0,60 Q20,62 50,58 T100,61" fill="none" stroke="#94A3B8" stroke-width="1.2" stroke-dasharray="2,2"></path>
+            </svg>
+            <div class="absolute bottom-3 left-4 flex gap-4 text-xs text-slate-500 font-medium">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-900"></span> FL</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-500"></span> FR</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span> BL</span>
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-slate-300"></span> BR</span>
             </div>
         </div>
     </div>
 
-    <!-- Middle Section: Biomechanics Visualizer & Telemetry Stream -->
-    <div class="grid grid-cols-1 lg:grid-cols-5 gap-stack-md flex-1">
-        <!-- Left: Biomechanical Visualizer (40%) -->
-        <div class="glass-card rounded-xl p-6 lg:col-span-2 flex flex-col border-t-2 border-t-surface-border relative overflow-hidden" id="biometrics">
-            <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: repeating-linear-gradient(45deg, #4cd7f6 0, #4cd7f6 1px, transparent 0, transparent 50%); background-size: 10px 10px;"></div>
-            
-            <h3 class="font-body-md text-body-md text-text-primary mb-6 flex items-center gap-2 relative z-10 font-semibold">
-                <span class="material-symbols-outlined text-secondary">grid_view</span> Dört Bacak Yük Dağılımı
-            </h3>
-            
-            <div class="flex-1 flex flex-col items-center justify-center relative z-10 py-6">
-                <!-- Abstract Wireframe Representation -->
-                <div class="relative w-48 h-64 border border-outline-variant/30 rounded-3xl bg-surface-container-lowest/60 p-4 shadow-inner">
-                    <!-- FL (Front Left) -->
-                    <div class="absolute -top-4 -left-8 bg-surface-card border border-secondary p-2 rounded-lg text-center min-w-[80px] shadow-[0_0_10px_rgba(76,215,246,0.2)]">
-                        <div class="font-data-sm text-[10px] text-text-muted">FL</div>
-                        <div class="font-data-sm text-sm text-secondary font-semibold" id="val-fl-kg">
-                            @Model.DashboardData.LegLoads.FrontLeftWeightKg.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)<span class="text-[10px]">kg</span>
-                        </div>
-                        <div class="font-data-sm text-[10px] text-primary" id="pct-fl">@Model.DashboardData.LegLoads.FrontLeftPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</div>
-                    </div>
-
-                    <!-- FR (Front Right) -->
-                    <div class="absolute -top-4 -right-8 bg-surface-card border border-blue-400 p-2 rounded-lg text-center min-w-[80px]">
-                        <div class="font-data-sm text-[10px] text-text-muted">FR</div>
-                        <div class="font-data-sm text-sm text-blue-400 font-semibold" id="val-fr-kg">
-                            @Model.DashboardData.LegLoads.FrontRightWeightKg.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)<span class="text-[10px]">kg</span>
-                        </div>
-                        <div class="font-data-sm text-[10px] text-primary" id="pct-fr">@Model.DashboardData.LegLoads.FrontRightPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</div>
-                    </div>
-
-                    <!-- BL (Back Left - Light Leg) -->
-                    <div class="absolute -bottom-4 -left-8 bg-surface-card border border-warning-amber p-2 rounded-lg text-center min-w-[80px] glow-amber">
-                        <div class="font-data-sm text-[10px] text-text-muted">
-                            BL @if (Model.DashboardData.LegLoads.IsBackLeftLightLeg) { <span class="text-warning-amber text-[8px] animate-pulse">LIGHT LEG</span> }
-                        </div>
-                        <div class="font-data-sm text-sm text-warning-amber font-semibold" id="val-bl-kg">
-                            @Model.DashboardData.LegLoads.BackLeftWeightKg.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)<span class="text-[10px]">kg</span>
-                        </div>
-                        <div class="font-data-sm text-[10px] text-warning-amber" id="pct-bl">@Model.DashboardData.LegLoads.BackLeftPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</div>
-                    </div>
-
-                    <!-- BR (Back Right) -->
-                    <div class="absolute -bottom-4 -right-8 bg-surface-card border border-purple-400 p-2 rounded-lg text-center min-w-[80px]">
-                        <div class="font-data-sm text-[10px] text-text-muted">BR</div>
-                        <div class="font-data-sm text-sm text-purple-400 font-semibold" id="val-br-kg">
-                            @Model.DashboardData.LegLoads.BackRightWeightKg.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)<span class="text-[10px]">kg</span>
-                        </div>
-                        <div class="font-data-sm text-[10px] text-primary" id="pct-br">@Model.DashboardData.LegLoads.BackRightPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</div>
-                    </div>
-
-                    <!-- Central CG Indicator -->
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-secondary/50 border border-secondary flex items-center justify-center">
-                        <div class="w-1.5 h-1.5 bg-white rounded-full"></div>
-                    </div>
-                    <!-- Center of gravity offset line -->
-                    <div class="absolute top-1/2 left-1/2 w-8 h-px bg-warning-amber/50 transform origin-left rotate-45"></div>
-                </div>
-            </div>
-
-            <!-- Front vs Back Load Ratio Bar -->
-            <div class="mt-6 relative z-10">
-                <div class="flex justify-between text-data-sm font-data-sm mb-1.5">
-                    <span class="text-text-muted">Ön <span class="text-text-primary font-semibold" id="front-load-text">@Model.DashboardData.LegLoads.FrontTotalPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</span></span>
-                    <span class="text-text-muted"><span class="text-text-primary font-semibold" id="back-load-text">@Model.DashboardData.LegLoads.BackTotalPercentage.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)%</span> Arka</span>
-                </div>
-                <div class="h-2.5 w-full bg-surface-container rounded-full overflow-hidden flex shadow-inner">
-                    <div class="h-full bg-primary transition-all duration-300" id="front-load-bar" style="width: @Model.DashboardData.LegLoads.FrontTotalPercentage%"></div>
-                    <div class="h-full w-px bg-background"></div>
-                    <div class="h-full bg-primary/40 transition-all duration-300" id="back-load-bar" style="width: @Model.DashboardData.LegLoads.BackTotalPercentage%"></div>
-                </div>
-                <div class="text-center mt-2 text-[11px] font-data-sm text-primary font-medium">
-                    @Model.DashboardData.LegLoads.AlignmentStatus
-                </div>
-            </div>
+    <!-- Diagnostic List (5 cols) -->
+    <div class="lg:col-span-5 flex flex-col">
+        <div class="mb-4">
+            <h2 class="text-lg font-semibold text-slate-900 font-headline-lg">Tanı Ölçümleri</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Sensör sapmaları ve tolerans eşikleri.</p>
         </div>
 
-        <!-- Right: Telemetry Stream (60%) -->
-        <div class="glass-card rounded-xl p-6 lg:col-span-3 flex flex-col border-t-2 border-t-surface-border" id="telemetry">
-            <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
-                <h3 class="font-body-md text-body-md text-text-primary flex items-center gap-2 font-semibold">
-                    <span class="material-symbols-outlined text-secondary">show_chart</span> 10 Hz Telemetri Akışı
-                </h3>
-                <div class="flex bg-surface-container-highest p-1 rounded-lg border border-outline-variant/50">
-                    <button type="button" id="tab-raw-data" class="px-3 py-1 text-[10px] font-data-sm rounded-md bg-transparent text-text-muted hover:text-text-primary transition-colors cursor-pointer">
-                        Ham HX711 Verisi
-                    </button>
-                    <button type="button" id="tab-filtered-data" class="px-3 py-1 text-[10px] font-data-sm rounded-md bg-surface-card border border-surface-border text-text-primary shadow-sm cursor-pointer">
-                        Temizlenmiş / Filtrelenmiş Veri
-                    </button>
+        <div class="divide-y divide-slate-100 border-y border-slate-100">
+            <div class="py-3.5 flex items-center justify-between text-sm">
+                <div>
+                    <span class="font-medium text-slate-900">Yük Asimetrisi</span>
+                    <p class="text-xs text-slate-400">Sol ve sağ taraf oranı</p>
+                </div>
+                <div class="text-right">
+                    <span class="font-data font-semibold text-slate-900">0.97</span>
+                    <span class="block text-xs text-emerald-600">Normal</span>
                 </div>
             </div>
 
-            <!-- Telemetry Graph Canvas Simulation -->
-            <div class="flex-1 min-h-[260px] relative bg-surface-container-lowest/40 rounded-xl border border-surface-border flex items-end p-4 overflow-hidden">
-                <!-- Scanline Effect -->
-                <div class="telemetry-scanline pointer-events-none"></div>
-
-                <!-- Y-Axis labels -->
-                <div class="absolute left-0 bottom-0 top-0 w-9 border-r border-surface-border/60 flex flex-col justify-between py-4 items-center bg-surface-container-lowest/30">
-                    <span class="text-[9px] font-data-sm text-text-muted">150kg</span>
-                    <span class="text-[9px] font-data-sm text-text-muted">125kg</span>
-                    <span class="text-[9px] font-data-sm text-text-muted">100kg</span>
+            <div class="py-3.5 flex items-center justify-between text-sm">
+                <div>
+                    <span class="font-medium text-slate-900">Ağırlık Farkı</span>
+                    <p class="text-xs text-slate-400">Ön tırnaklar arası fark</p>
                 </div>
-
-                <div class="w-full h-full ml-7 relative">
-                    <!-- Horizontal Grid lines -->
-                    <div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                        <div class="w-full h-px bg-surface-border/40"></div>
-                        <div class="w-full h-px bg-surface-border/40"></div>
-                        <div class="w-full h-px bg-surface-border/40"></div>
-                    </div>
-
-                    <!-- Dynamic Event Tag Annotations -->
-                    <div class="absolute top-4 left-[30%] px-2 py-0.5 bg-surface-card border border-secondary/60 rounded text-[9px] font-data-sm text-secondary shadow-[0_0_8px_rgba(76,215,246,0.4)] z-20 flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> STEP
-                        <div class="absolute -bottom-full left-1/2 w-px h-24 bg-secondary/30"></div>
-                    </div>
-                    <div class="absolute top-10 left-[70%] px-2 py-0.5 bg-surface-card border border-alarm-rose/60 rounded text-[9px] font-data-sm text-alarm-rose shadow-[0_0_8px_rgba(244,63,94,0.4)] z-20 flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-alarm-rose pulse-dot-rose"></span> KICK
-                        <div class="absolute -bottom-full left-1/2 w-px h-20 bg-alarm-rose/30"></div>
-                    </div>
-
-                    <!-- Multi-Channel Waveforms (SVG representation with high-precision curves) -->
-                    <svg class="w-full h-full absolute inset-0" preserveAspectRatio="none" viewBox="0 0 100 100">
-                        <!-- FL Cyan Line -->
-                        <path id="svg-fl-line" d="M0,20 Q10,22 20,20 T40,25 T60,20 T80,30 T100,20" fill="none" stroke="#4cd7f6" stroke-linejoin="round" stroke-width="1.8"></path>
-                        <!-- FR Blue Line -->
-                        <path id="svg-fr-line" d="M0,25 Q15,25 30,35 T50,25 T70,30 T100,22" fill="none" stroke="#60a5fa" stroke-linejoin="round" stroke-width="1.8"></path>
-                        <!-- BL Emerald Line -->
-                        <path id="svg-bl-line" d="M0,60 Q20,55 30,65 T40,75 T60,60 T70,80 T100,55" fill="none" stroke="#4edea3" stroke-linejoin="round" stroke-width="1.8"></path>
-                        <!-- BR Purple Line -->
-                        <path id="svg-br-line" d="M0,55 Q10,50 25,60 T45,55 T65,65 T80,50 T100,60" fill="none" stroke="#c084fc" stroke-linejoin="round" stroke-width="1.8"></path>
-                    </svg>
+                <div class="text-right">
+                    <span class="font-data font-semibold text-slate-900">2.5 kg</span>
+                    <span class="block text-xs text-emerald-600">Normal</span>
                 </div>
             </div>
 
-            <!-- Waveform Channel Legend -->
-            <div class="flex flex-wrap justify-center gap-5 mt-4 font-data-sm text-[11px]">
-                <div class="flex items-center gap-1.5">
-                    <div class="w-2.5 h-2.5 rounded bg-secondary shadow-[0_0_6px_#4cd7f6]"></div>
-                    <span class="text-text-muted">FL (Sol Ön)</span>
+            <div class="py-3.5 flex items-center justify-between text-sm">
+                <div>
+                    <span class="font-medium text-slate-900">Yük Kayması</span>
+                    <p class="text-xs text-slate-400">Arka sol tırnak sapması</p>
                 </div>
-                <div class="flex items-center gap-1.5">
-                    <div class="w-2.5 h-2.5 rounded bg-blue-400 shadow-[0_0_6px_#60a5fa]"></div>
-                    <span class="text-text-muted">FR (Sağ Ön)</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <div class="w-2.5 h-2.5 rounded bg-primary shadow-[0_0_6px_#4edea3]"></div>
-                    <span class="text-text-muted">BL (Sol Arka)</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <div class="w-2.5 h-2.5 rounded bg-purple-400 shadow-[0_0_6px_#c084fc]"></div>
-                    <span class="text-text-muted">BR (Sağ Arka)</span>
+                <div class="text-right">
+                    <span class="font-data font-semibold text-amber-600">24.1 kg</span>
+                    <span class="block text-xs text-amber-600">Kontrol Önerilir</span>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Bottom Section: Research Alarms Table & Radar Baseline -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-stack-md">
-        <!-- Left: Research Alarms Table -->
-        <div class="glass-card rounded-xl p-6 border-t-2 border-t-surface-border">
-            <h3 class="font-body-md text-body-md text-text-primary mb-4 flex items-center gap-2 font-semibold">
-                <span class="material-symbols-outlined text-secondary text-sm">notifications_active</span> Araştırma Tanıları
-            </h3>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-surface-border">
-                            <th class="py-2.5 text-[11px] font-data-sm text-text-muted uppercase tracking-wider">METRİK</th>
-                            <th class="py-2.5 text-[11px] font-data-sm text-text-muted uppercase tracking-wider">DURUM</th>
-                            <th class="py-2.5 text-[11px] font-data-sm text-text-muted uppercase tracking-wider text-right">DEĞER</th>
-                        </tr>
-                    </thead>
-                    <tbody class="font-data-sm text-[13px]">
-                        @foreach (var diag in Model.DashboardData.Diagnostics)
-                        {
-                            <tr class="@diag.RowClass">
-                                <td class="py-3.5 @(diag.IsAlarm ? "pl-2" : "") text-on-surface font-medium">@diag.MetricName</td>
-                                <td class="py-3.5">
-                                    <span class="px-2.5 py-0.5 rounded text-[10px] font-semibold @diag.BadgeClass">
-                                        @diag.StatusText
-                                    </span>
-                                </td>
-                                <td class="py-3.5 text-right @(diag.IsAlarm ? "text-alarm-rose font-bold" : "text-text-primary font-mono")">
-                                    @diag.ValueText
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Right: Historical Baseline Radar Chart -->
-        <div class="glass-card rounded-xl p-6 border-t-2 border-t-surface-border flex flex-col">
-            <h3 class="font-body-md text-body-md text-text-primary mb-4 flex items-center gap-2 font-semibold">
-                <span class="material-symbols-outlined text-secondary text-sm">history</span> 30 Günlük Temel Karşılaştırma
-            </h3>
-            <div class="flex-1 flex items-center justify-center relative min-h-[220px]">
-                <!-- Radar Chart Container -->
-                <div class="relative w-52 h-52">
-                    <!-- Background Radar Pentagons -->
-                    <svg class="w-full h-full absolute inset-0 text-surface-border" viewBox="0 0 100 100">
-                        <polygon fill="none" points="50,10 90,35 75,85 25,85 10,35" stroke="currentColor" stroke-width="1"></polygon>
-                        <polygon fill="none" points="50,30 75,45 65,75 35,75 25,45" stroke="currentColor" stroke-width="1"></polygon>
-                        <polygon fill="none" points="50,50 60,55 55,70 45,70 40,55" stroke="currentColor" stroke-width="1"></polygon>
-                        
-                        <!-- Baseline Data (Muted Polygon) -->
-                        <polygon fill="rgba(148, 163, 184, 0.12)" points="@Model.DashboardData.Baseline.BaselinePolygonPoints" stroke="#94A3B8" stroke-dasharray="2,2" stroke-width="1.2"></polygon>
-                        
-                        <!-- Current Telemetry Data (Primary/Emerald Glow Polygon) -->
-                        <polygon fill="rgba(78, 222, 163, 0.2)" points="@Model.DashboardData.Baseline.CurrentPolygonPoints" stroke="#4edea3" stroke-width="2.2"></polygon>
-                        
-                        <!-- Axis Lines -->
-                        <line stroke="currentColor" stroke-width="0.5" x1="50" x2="50" y1="50" y2="10"></line>
-                        <line stroke="currentColor" stroke-width="0.5" x1="50" x2="90" y1="50" y2="35"></line>
-                        <line stroke="currentColor" stroke-width="0.5" x1="50" x2="75" y1="50" y2="85"></line>
-                        <line stroke="currentColor" stroke-width="0.5" x1="50" x2="25" y1="50" y2="85"></line>
-                        <line stroke="currentColor" stroke-width="0.5" x1="50" x2="10" y1="50" y2="35"></line>
-                    </svg>
-
-                    <!-- Axis Labels -->
-                    <div class="absolute -top-4 left-1/2 transform -translate-x-1/2 text-[9px] font-data-sm text-text-muted whitespace-nowrap bg-surface-card px-1.5 py-0.5 rounded border border-surface-border">Hind LWR Dev</div>
-                    <div class="absolute top-8 -right-10 text-[9px] font-data-sm text-text-muted whitespace-nowrap bg-surface-card px-1.5 py-0.5 rounded border border-surface-border">F/H Ratio Drift</div>
-                    <div class="absolute bottom-1 -right-8 text-[9px] font-data-sm text-text-muted whitespace-nowrap bg-surface-card px-1.5 py-0.5 rounded border border-surface-border">Step Var</div>
-                    <div class="absolute bottom-1 -left-8 text-[9px] font-data-sm text-text-muted whitespace-nowrap bg-surface-card px-1.5 py-0.5 rounded border border-surface-border">Rest Time</div>
-                    <div class="absolute top-8 -left-12 text-[9px] font-data-sm text-text-muted whitespace-nowrap bg-surface-card px-1.5 py-0.5 rounded border border-surface-border">Weight Avg</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Footer Actions Bar -->
-    <div class="flex flex-wrap gap-4 mt-4 pt-4 border-t border-surface-border items-center">
-        <!-- Live Simulation Trigger -->
-        <button type="button" id="btn-simulate" class="bg-primary hover:bg-primary-fixed text-on-primary font-body-sm font-bold py-2.5 px-6 rounded-lg transition-all shadow-[0_0_15px_rgba(78,222,163,0.3)] flex items-center gap-2 cursor-pointer">
-            <span class="material-symbols-outlined text-sm">play_arrow</span> Canlı ESP32 Akışını Simüle Et
+<!-- Footer Actions: Clean, Minimal Buttons -->
+<div class="flex flex-wrap items-center gap-3 pt-6 border-t border-slate-200/80">
+    <button type="button" id="btn-simulate" class="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-medium transition cursor-pointer shadow-xs">
+        Canlı Simülasyonu Başlat
+    </button>
+    
+    <form method="post" asp-page-handler="ExportData" class="inline">
+        <button type="submit" class="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-xs font-medium transition cursor-pointer">
+            CSV Olarak İndir
         </button>
+    </form>
 
-        <!-- CSV Export Postback -->
-        <form method="post" asp-page-handler="ExportData" class="inline">
-            <button type="submit" class="bg-transparent border border-secondary text-secondary hover:bg-secondary/10 font-body-sm font-medium py-2.5 px-6 rounded-lg transition-colors flex items-center gap-2 cursor-pointer">
-                <span class="material-symbols-outlined text-sm">file_download</span> CSV Olarak Dışa Aktar
-            </button>
-        </form>
+    <button type="button" id="btn-system-logs" class="px-4 py-2.5 text-slate-500 hover:text-slate-900 rounded-xl text-xs font-medium transition ml-auto cursor-pointer">
+        Sistem Günlükleri
+    </button>
+</div>
 
-        <!-- System Logs Trigger -->
-        <button type="button" id="btn-system-logs" class="bg-transparent text-text-muted hover:text-text-primary hover:bg-surface-container-high font-body-sm py-2.5 px-6 rounded-lg transition-colors ml-auto flex items-center gap-2 border border-surface-border cursor-pointer">
-            <span class="material-symbols-outlined text-sm">terminal</span> Sistem Günlükleri
-        </button>
+<!-- Fullscreen Focus Modal: Clean, High-Resolution Apple/Stripe Style -->
+<div class="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs hidden items-center justify-center p-3 sm:p-6 lg:p-8" id="expand-modal">
+    <div class="bg-white rounded-3xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200">
+        <!-- Modal Header -->
+        <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div>
+                <h3 class="font-semibold text-slate-900 text-base sm:text-lg font-headline-lg">Tırnak ve Bacak Basınç Haritası (Odak Modu)</h3>
+                <p class="text-xs text-slate-500">TR-34-8902 • Siyah Alaca • 4 Kanallı HX711 Tartı İstasyonu</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" class="px-3.5 py-1.5 text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-lg cursor-pointer flex items-center gap-1.5 shadow-xs transition" id="modal-reset-orbit">
+                    <span class="material-symbols-outlined text-sm">restart_alt</span> Açıyı &amp; Zoom'u Sıfırla
+                </button>
+                <button type="button" class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-500 flex items-center justify-center cursor-pointer transition shadow-xs" id="close-modal-btn" title="Kapat">
+                    <span class="material-symbols-outlined text-base">close</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Body: Split View -->
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+            <!-- 3D Large Viewport -->
+            <div class="lg:col-span-8 relative bg-[#F8FAFC] flex items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-100">
+                <div class="w-full h-full cursor-grab active:cursor-grabbing" id="modal-three-container"></div>
+                
+                <!-- Floating Controls Overlay -->
+                <div class="absolute top-4 left-4 pointer-events-none flex items-center gap-2 bg-white/90 backdrop-blur-xs px-3 py-1 rounded-full border border-slate-200 text-xs font-medium text-slate-700 shadow-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span>360° Serbest Açı &amp; Zoom Aktif</span>
+                </div>
+
+                <div class="absolute bottom-3 right-3 pointer-events-none text-[11px] text-slate-400 bg-white/85 backdrop-blur-xs px-2.5 py-1 rounded-md border border-slate-200/60 shadow-2xs">
+                    Çevirmek için sürükleyin • Yakınlaştırmak için kaydırın
+                </div>
+            </div>
+
+            <!-- Prominent Telemetry Side-Cards for All 4 Legs -->
+            <div class="lg:col-span-4 p-6 overflow-y-auto flex flex-col justify-between bg-white space-y-6">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tırnak Telemetri Kartları</h4>
+                        <span class="text-[11px] font-medium text-slate-500">10 Hz Anlık</span>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <!-- FL -->
+                        <div class="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100 hover:border-slate-200 transition">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                    <div>
+                                        <div class="text-xs font-semibold text-slate-900">Sol Ön Ayak (FL)</div>
+                                        <div class="text-[10px] text-slate-400">HX711 Sensör #01</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-bold text-slate-900 font-data" id="modal-val-fl">132.5 kg</div>
+                                    <div class="text-[11px] font-medium text-emerald-600" id="modal-pct-fl">%27.5 (Normal)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FR -->
+                        <div class="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100 hover:border-slate-200 transition">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                    <div>
+                                        <div class="text-xs font-semibold text-slate-900">Sağ Ön Ayak (FR)</div>
+                                        <div class="text-[10px] text-slate-400">HX711 Sensör #02</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-bold text-slate-900 font-data" id="modal-val-fr">131.0 kg</div>
+                                    <div class="text-[11px] font-medium text-emerald-600" id="modal-pct-fr">%27.1 (Normal)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BL (Light Leg) -->
+                        <div class="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200/80 shadow-xs">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                    <div>
+                                        <div class="text-xs font-bold text-amber-900">Sol Arka Ayak (BL)</div>
+                                        <div class="text-[10px] text-amber-700 font-medium">Hafif Yüklenme Tespit Edildi</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-bold text-amber-900 font-data" id="modal-val-bl">108.2 kg</div>
+                                    <div class="text-[11px] font-bold text-amber-600" id="modal-pct-bl">%22.4 (Düşük)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BR -->
+                        <div class="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100 hover:border-slate-200 transition">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                    <div>
+                                        <div class="text-xs font-semibold text-slate-900">Sağ Arka Ayak (BR)</div>
+                                        <div class="text-[10px] text-slate-400">HX711 Sensör #04</div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-sm font-bold text-slate-900 font-data" id="modal-val-br">110.7 kg</div>
+                                    <div class="text-[11px] font-medium text-emerald-600" id="modal-pct-br">%23.0 (Dengeli)</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Load Distribution Ratio Summary -->
+                <div class="p-4 bg-slate-50 rounded-2xl border border-slate-100 mt-auto">
+                    <div class="flex justify-between text-xs font-medium text-slate-600 mb-1.5">
+                        <span>Ön Yük: <strong class="text-slate-900 font-data">54.6%</strong></span>
+                        <span>Arka Yük: <strong class="text-slate-900 font-data">45.4%</strong></span>
+                    </div>
+                    <div class="h-2 w-full bg-slate-200/80 rounded-full overflow-hidden flex gap-0.5">
+                        <div class="h-full bg-slate-800 rounded-l-full transition-all duration-300" id="modal-front-bar" style="width: 54.6%"></div>
+                        <div class="h-full bg-slate-400 rounded-r-full transition-all duration-300" id="modal-back-bar" style="width: 45.4%"></div>
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-2.5 leading-relaxed">
+                        Sol arka ayaktaki yük kaybı nedeniyle ağırlık diğer bacaklara aktarılmıştır. Tırnak kontrolü tavsiye edilir.
+                    </p>
+                </div>
+            </div>
+        </div>
     </div>
-
 </div>
